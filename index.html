@@ -80,10 +80,10 @@
           document.getElementById("display-name").innerText = data.name + " 様";
           document.getElementById("display-sub").innerText = "一番の診察室へお入りください";
 
-          // 「ピーンポーン♪」チャイム再生
-          playPinPonChime();
+          // 長めの「ピィィーン……ポォォーン……♪」チャイム再生
+          playLongPinPonChime();
 
-          // 音声読み上げ
+          // 音声読み上げ（チャイムの余韻が落ち着いた約1.5秒後に開始）
           setTimeout(() => {
             synth.cancel();
             let speechText = data.name + "さん。いちばんのしんさつしつへ、おはいりください。";
@@ -98,39 +98,43 @@
             }
 
             synth.speak(uttr);
-          }, 1100);
+          }, 1500);
         } catch(e) {}
       });
     }
 
-    // 澄んだ「ピーン・ポーン♪」の2和音チャイム
-    function playPinPonChime() {
+    // 音長を伸ばしたロングトーン「ピィィーン……ポォォーン……♪」
+    function playLongPinPonChime() {
       try {
         let ctx = new (window.AudioContext || window.webkitAudioContext)();
+        
+        // 1音目: 880Hz (A5), 長さ0.9秒
+        // 2音目: 698.46Hz (F5), 長さ1.1秒
         let tones = [
-          { freq: 880.00, start: 0.00, dur: 0.55 }, // ピーン (A5)
-          { freq: 698.46, start: 0.45, dur: 0.65 }  // ポーン (F5)
+          { freq: 880.00, start: 0.00, dur: 0.90, peak: 0.35 },
+          { freq: 698.46, start: 0.65, dur: 1.10, peak: 0.35 }
         ];
 
         tones.forEach(t => {
+          // 主音 (サイン波)
           let osc = ctx.createOscillator();
           let gain = ctx.createGain();
           osc.type = "sine";
           osc.frequency.setValueAtTime(t.freq, ctx.currentTime + t.start);
-          gain.gain.setValueAtTime(0.35, ctx.currentTime + t.start);
+          gain.gain.setValueAtTime(t.peak, ctx.currentTime + t.start);
           gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + t.start + t.dur);
           osc.connect(gain);
           gain.connect(ctx.destination);
           osc.start(ctx.currentTime + t.start);
           osc.stop(ctx.currentTime + t.start + t.dur);
 
-          // ベルのような豊かな響きを重ねる倍音
+          // 澄んだ響きを加える倍音 (トライアングル波)
           let osc2 = ctx.createOscillator();
           let gain2 = ctx.createGain();
           osc2.type = "triangle";
           osc2.frequency.setValueAtTime(t.freq * 2, ctx.currentTime + t.start);
           gain2.gain.setValueAtTime(0.12, ctx.currentTime + t.start);
-          gain2.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + t.start + (t.dur * 0.7));
+          gain2.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + t.start + (t.dur * 0.8));
           osc2.connect(gain2);
           gain2.connect(ctx.destination);
           osc2.start(ctx.currentTime + t.start);
