@@ -4,7 +4,10 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>診察室 呼出モニター</title>
+  <!-- MQTTライブラリ -->
   <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+  <!-- 画面消灯防止（NoSleep.js）ライブラリ -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/nosleep/0.12.0/NoSleep.min.js"></script>
   <style>
     * { box-sizing: border-box; }
     body {
@@ -58,9 +61,20 @@
 
     let synth = window.speechSynthesis;
     let isReady = false;
+    let noSleep = new NoSleep(); // NoSleepインスタンス初期化
 
     function startReceiver() {
+      // 1. 画面スリープ防止を有効化（タップ時に起動）
+      try {
+        noSleep.enable();
+      } catch (err) {
+        console.warn("NoSleep enable error:", err);
+      }
+
+      // 2. 音声合成のロック解除
       synth.speak(new SpeechSynthesisUtterance(""));
+
+      // 3. 画面UI切り替え
       document.getElementById("init-screen").style.display = "none";
       document.getElementById("main-ui").style.display = "block";
       isReady = true;
@@ -68,7 +82,7 @@
       const client = mqtt.connect("wss://broker.emqx.io:8084/mqtt");
 
       client.on("connect", function () {
-        document.getElementById("status").innerText = "● クラウド接続完了（呼出待機中）";
+        document.getElementById("status").innerText = "● クラウド接続完了（画面常時点灯中）";
         client.subscribe(TOPIC_NAME);
       });
 
@@ -108,15 +122,12 @@
       try {
         let ctx = new (window.AudioContext || window.webkitAudioContext)();
         
-        // 1音目: 880Hz (A5), 長さ0.9秒
-        // 2音目: 698.46Hz (F5), 長さ1.1秒
         let tones = [
           { freq: 880.00, start: 0.00, dur: 0.90, peak: 0.35 },
           { freq: 698.46, start: 0.65, dur: 1.10, peak: 0.35 }
         ];
 
         tones.forEach(t => {
-          // 主音 (サイン波)
           let osc = ctx.createOscillator();
           let gain = ctx.createGain();
           osc.type = "sine";
@@ -128,7 +139,6 @@
           osc.start(ctx.currentTime + t.start);
           osc.stop(ctx.currentTime + t.start + t.dur);
 
-          // 澄んだ響きを加える倍音 (トライアングル波)
           let osc2 = ctx.createOscillator();
           let gain2 = ctx.createGain();
           osc2.type = "triangle";
